@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiPC 2026 · นาฬิกาการบรรยาย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1E2A2F; --paper:#F4F5F2; --line:#D5DAD6;
+  --go:#0E3B2E; --go-ink:#E6F2EC;
+  --warn:#E3A41B; --warn-ink:#211A06;
+  --crit:#B3261E; --crit-ink:#FFF1EF; --crit-deep:#6E1410;
+  --rest:#22313B; --rest-ink:#DCE5EA;
+  --tv:#13233A; --tv-ink:#F2EEE4; --tv-dim:#9FB0C2; --tv-bar:#7FC4B0;
+  --accent:#0E6B57;
+  --num:'Chakra Petch', 'Anuphan', system-ui, sans-serif;
+  --text:'Anuphan', system-ui, sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--text);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #2E7FD1;outline-offset:2px}
+.hidden{display:none!important}
+.d{display:inline-block;width:.62em;text-align:center}       /* fixed-width digit */
+.sep{display:inline-block;width:.32em;text-align:center}
+
+/* ---------- role picker ---------- */
+#picker{min-height:100%;display:grid;place-items:center;padding:6vh 5vw}
+#picker .wrap{width:min(760px,100%)}
+#picker h1{font-family:var(--num);font-weight:600;font-size:clamp(28px,4vw,40px);letter-spacing:-.01em}
+#picker p{margin-top:.4em;color:#5A666B}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px}
+.roles button{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:22px 18px;text-align:left;min-height:150px;display:flex;flex-direction:column;justify-content:space-between}
+.roles button:hover{border-color:var(--accent)}
+.roles b{font-family:var(--num);font-size:22px;font-weight:600}
+.roles span{color:#5A666B;font-size:15px;line-height:1.45}
+@media (max-width:640px){.roles{grid-template-columns:1fr}.roles button{min-height:0}}
+.setup-warn{margin-top:24px;padding:14px 16px;border-radius:8px;background:#FFF4D6;border:1px solid #E9C979;font-size:15px;line-height:1.5}
+
+/* ---------- shared stage bits ---------- */
+.stage{position:fixed;inset:0;overflow:hidden;cursor:none}
+.stage.show-cursor{cursor:default}
+.corner{position:fixed;right:14px;top:12px;display:flex;gap:10px;align-items:center;z-index:5;opacity:0;transition:opacity .3s}
+#corner.show-cursor{opacity:1}
+.corner button{background:rgba(0,0,0,.35);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 12px;font-size:14px}
+.offline{position:fixed;left:14px;bottom:12px;z-index:6;font-size:15px;font-weight:600;padding:5px 12px;border-radius:20px;background:#000c;color:#FFD2CC}
+.fs-hint{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);font-size:15px;padding:8px 16px;border-radius:20px;background:#0009;color:#fff;z-index:6}
+
+/* ---------- speaker ---------- */
+#speaker{display:grid;grid-template-rows:auto 1fr auto auto;padding:3.2vh 4vw 3vh;transition:background-color .6s,color .6s}
+#speaker.ok{background:var(--go);color:var(--go-ink)}
+#speaker.warn{background:var(--warn);color:var(--warn-ink)}
+#speaker.crit{background:var(--crit);color:var(--crit-ink)}
+#speaker.over{color:var(--crit-ink);animation:overpulse 1s steps(1) infinite}
+#speaker.rest{background:var(--rest);color:var(--rest-ink)}
+@keyframes overpulse{0%{background:var(--crit)}50%{background:var(--crit-deep)}}
+@media (prefers-reduced-motion:reduce){#speaker.over{animation:none;background:var(--crit-deep)}}
+.sp-top{display:flex;justify-content:space-between;gap:3vw;align-items:baseline}
+.sp-title{font-size:clamp(18px,2.6vw,34px);font-weight:500;line-height:1.3;max-width:70%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sp-range{font-family:var(--num);font-size:clamp(18px,2.4vw,32px);font-weight:600;white-space:nowrap;opacity:.85}
+.sp-clock{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+.sp-label{font-size:clamp(18px,2.4vw,32px);font-weight:500;opacity:.85}
+.sp-time{font-family:var(--num);font-weight:700;line-height:.95;font-size:min(27vw,52vh);letter-spacing:-.02em;white-space:nowrap}
+.sp-time.long{font-size:min(19vw,44vh)}
+.sp-text{font-size:clamp(28px,5vw,64px);font-weight:600;text-align:center;line-height:1.25}
+.sp-bar{height:2.2vh;min-height:12px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden;margin:2.2vh 0 1.8vh}
+.warn .sp-bar{background:rgba(0,0,0,.15)}
+.sp-bar i{display:block;height:100%;width:0;background:currentColor;border-radius:99px;transition:width .4s linear}
+.sp-next{font-size:clamp(16px,2vw,26px);opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-next b{font-family:var(--num);font-weight:600;margin-right:.6em}
+.sp-msg{margin-top:1.6vh;padding:1.6vh 2vw;border-radius:12px;background:#FFF6D8;color:#2A2100;font-size:clamp(26px,4.4vw,60px);font-weight:600;text-align:center;line-height:1.2}
+.sp-msg.flash{animation:msgflash .45s steps(1) 6}
+@keyframes msgflash{50%{background:#fff;color:#000}}
+@media (prefers-reduced-motion:reduce){.sp-msg.flash{animation:none}}
+
+/* ---------- audience (TV) ---------- */
+#audience{background:var(--tv);color:var(--tv-ink);display:grid;grid-template-rows:auto 1fr auto auto;padding:6vh 6vw 5vh}
+.au-meta{display:flex;justify-content:space-between;align-items:baseline;gap:2vw}
+.au-range{font-family:var(--num);font-weight:600;font-size:clamp(22px,3vw,44px);color:var(--tv-bar)}
+.au-tag{font-size:clamp(16px,1.8vw,26px);color:var(--tv-dim)}
+.au-main{display:flex;flex-direction:column;justify-content:center;min-height:0;max-width:88%}
+.au-title{font-weight:600;font-size:clamp(34px,4.9vw,84px);line-height:1.18;letter-spacing:-.005em;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.au-title.th{line-height:1.3}
+.au-spk{margin-top:3vh;font-size:clamp(18px,2.1vw,34px);color:var(--tv-dim);line-height:1.45;columns:2;column-gap:4vw;max-width:100%}
+.au-spk.one{columns:1}
+.au-big{font-family:var(--num);font-weight:700;font-size:min(15vw,28vh);line-height:1;margin-top:2vh;color:var(--tv-bar)}
+.au-sub{font-size:clamp(22px,2.8vw,44px);margin-top:1.4vh;color:var(--tv-ink)}
+.au-bar{height:10px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden;margin:4vh 0 2.6vh}
+.au-bar i{display:block;height:100%;width:0;background:var(--tv-bar);transition:width .8s linear}
+.au-next{font-size:clamp(18px,2vw,30px);color:var(--tv-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.au-next b{font-family:var(--num);color:var(--tv-ink);font-weight:600;margin:0 .6em}
+
+/* ---------- admin ---------- */
+#admin{max-width:1180px;margin:0 auto;padding:18px 20px 60px}
+.ad-head{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.ad-head h1{font-family:var(--num);font-size:24px;font-weight:600}
+.ad-status{display:flex;gap:14px;align-items:center;font-size:15px;color:#4E5A5F}
+.ad-clock{font-family:var(--num);font-weight:600;font-size:22px;color:var(--ink)}
+.dot{width:10px;height:10px;border-radius:50%;background:#2F9E6E;display:inline-block;margin-right:6px}
+.dot.off{background:var(--crit)}
+.mode{font-weight:600;padding:6px 14px;border-radius:6px;font-size:16px}
+.mode.schedule{background:#DDEFE7;color:#0E4A3B}
+.mode.manual{background:#FFE7B8;color:#5C3C00}
+.btn{border:1.5px solid var(--line);background:#fff;border-radius:7px;padding:9px 14px;font-size:15px}
+.btn:hover{border-color:#9AA6A2}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.dan{background:#fff;border-color:#E2A6A1;color:var(--crit)}
+.btn.sm{padding:5px 10px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.banner{margin-top:14px;padding:12px 16px;border-radius:8px;background:#FFE7B8;border:1px solid #E9B85C;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:15px;z-index:20}
+.toast.err{background:var(--crit)}
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:18px;margin-top:18px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.panel h2{font-size:17px;font-weight:600;margin-bottom:10px}
+.now-title{font-size:20px;font-weight:600;line-height:1.35}
+.now-meta{margin-top:6px;color:#4E5A5F;font-size:15px}
+.now-rem{font-family:var(--num);font-weight:700;font-size:44px;margin-top:6px}
+.now-rem.warn{color:#A06C00}.now-rem.crit,.now-rem.over{color:var(--crit)}
+.row-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.msg-presets{display:flex;flex-wrap:wrap;gap:8px}
+.msg-form{display:flex;gap:8px;margin-top:10px}
+.msg-form input{flex:1}
+input[type=text],input[type=time],input[type=number],select{font:inherit;font-size:15px;border:1.5px solid var(--line);border-radius:7px;padding:8px 10px;background:#fff;min-width:0}
+.msg-now{margin-top:10px;font-size:15px;color:#4E5A5F}
+.msg-now b{color:var(--ink)}
+.field{display:flex;flex-direction:column;gap:4px;font-size:14px;color:#4E5A5F}
+.manual-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.manual-form .wide{grid-column:1/-1}
+.sched{margin-top:18px}
+.sched-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-weight:600;color:#4E5A5F;font-size:14px;padding:8px 6px;border-bottom:1.5px solid var(--line)}
+td{padding:8px 6px;border-bottom:1px solid #E7EAE7;vertical-align:top}
+tr.cur td{background:#EEF7F2}
+tr.past td{color:#8C979B}
+td.t{font-family:var(--num);font-weight:600;white-space:nowrap}
+td.adj input{width:100px}
+td.adj{white-space:nowrap}
+.type{font-size:13px;padding:2px 8px;border-radius:4px;background:#EEF1EF;white-space:nowrap}
+.type.พัก,.type.ประเมิน{background:#F1F1F1;color:#666}
+.type.Sponsor{background:#E8EEFA;color:#2C4A8A}
+.overlap{display:block;margin-top:4px;color:var(--crit);font-size:13px;font-weight:500}
+.adjusted{color:#A06C00;font-weight:600}
+.table-wrap{overflow-x:auto}
+.login{max-width:380px;margin:12vh auto 0;padding:0 20px}
+.login h1{font-family:var(--num);font-weight:600;font-size:28px}
+.login form{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.err{color:var(--crit);font-size:15px;min-height:1.4em}
+</style>
+</head>
+<body>
+
+<!-- ================= ROLE PICKER ================= -->
+<section id="picker" class="hidden">
+  <div class="wrap">
+    <h1>SiPC 2026 · นาฬิกาการบรรยาย</h1>
+    <p>เลือกบทบาทของเครื่องนี้ เครื่องจะจำไว้แม้รีเฟรชหน้า</p>
+    <div class="roles">
+      <button data-role="admin"><b>Admin</b><span>ควบคุมเวลา สลับโหมด และส่งข้อความถึงวิทยากร ต้องใช้รหัสผ่าน</span></button>
+      <button data-role="speaker"><b>Speaker</b><span>เวลาที่เหลือตัวใหญ่ พร้อมสีเตือน สำหรับโน้ตบุ๊กหน้าเวที</span></button>
+      <button data-role="audience"><b>Audience</b><span>หัวข้อ วิทยากร และความคืบหน้า สำหรับจอทีวีในห้อง</span></button>
+    </div>
+    <div id="setupWarn" class="setup-warn hidden">ยังไม่ได้ใส่ URL ของ Apps Script ในไฟล์ index.html (ค่า <code>API_URL</code> บรรทัดแรกของสคริปต์)</div>
+  </div>
+</section>
+
+<!-- ================= SPEAKER ================= -->
+<section id="speaker" class="stage rest hidden">
+  <div class="sp-top"><div class="sp-title" data-r="title"></div><div class="sp-range" data-r="range"></div></div>
+  <div class="sp-clock">
+    <div class="sp-label" data-r="label"></div>
+    <div class="sp-time" data-r="time"></div>
+    <div class="sp-text hidden" data-r="text"></div>
+  </div>
+  <div>
+    <div class="sp-bar" data-r="barwrap"><i data-r="bar"></i></div>
+    <div class="sp-next" data-r="next"></div>
+  </div>
+  <div class="sp-msg hidden" data-r="msg"></div>
+</section>
+
+<!-- ================= AUDIENCE ================= -->
+<section id="audience" class="stage hidden">
+  <div class="au-meta"><div class="au-range" data-r="range"></div><div class="au-tag" data-r="tag"></div></div>
+  <div class="au-main">
+    <div class="au-title" data-r="title"></div>
+    <div class="au-spk" data-r="spk"></div>
+    <div class="au-big hidden" data-r="big"></div>
+    <div class="au-sub hidden" data-r="sub"></div>
+  </div>
+  <div class="au-bar" data-r="barwrap"><i data-r="bar"></i></div>
+  <div class="au-next" data-r="next"></div>
+</section>
+
+<div class="corner hidden" id="corner"><button id="fsBtn">เต็มจอ</button><button id="switchBtn">เปลี่ยนบทบาท</button></div>
+<div class="offline hidden" id="offline">ออฟไลน์ · นับต่อจากข้อมูลล่าสุด</div>
+<div class="fs-hint hidden" id="fsHint">คลิกที่จอเพื่อแสดงเต็มจอ</div>
+
+<!-- ================= ADMIN ================= -->
+<section id="adminLogin" class="login hidden">
+  <h1>เข้าสู่หน้า Admin</h1>
+  <form id="loginForm">
+    <input type="password" id="pw" placeholder="รหัสผ่าน" autocomplete="current-password" required>
+    <button class="btn pri" type="submit">เข้าสู่ระบบ</button>
+    <div class="err" id="loginErr"></div>
+    <button class="btn" type="button" id="loginBack">กลับไปเลือกบทบาท</button>
+  </form>
+</section>
+
+<section id="admin" class="hidden">
+  <div class="ad-head">
+    <h1>SiPC 2026 · Admin</h1>
+    <div class="ad-status">
+      <span id="adConn"><span class="dot"></span>เชื่อมต่อแล้ว</span>
+      <span class="ad-clock" id="adClock">--.--.--</span>
+      <span class="mode schedule" id="adMode">ตามตาราง</span>
+      <button class="btn sm" id="adLogout">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div class="banner hidden" id="manualBanner">
+    <span>ยังอยู่ในโหมดกำหนดเอง และเลยเวลาจบมา <b id="manualLate"></b> นาทีแล้ว ต้องการกลับไปแสดงตามตารางไหม</span>
+    <button class="btn pri" data-act="toSchedule">กลับไปตามตาราง</button>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>กำลังแสดงบนจอ</h2>
+      <div class="now-title" id="nowTitle">—</div>
+      <div class="now-meta" id="nowMeta"></div>
+      <div class="now-rem" id="nowRem"></div>
+      <div class="row-btns" id="nowBtns"></div>
+    </div>
+
+    <div class="panel">
+      <h2>ข้อความถึงวิทยากร</h2>
+      <div class="msg-presets">
+        <button class="btn" data-msg="เหลือ 5 นาที">เหลือ 5 นาที</button>
+        <button class="btn" data-msg="กรุณาสรุป">กรุณาสรุป</button>
+        <button class="btn" data-msg="เริ่ม Q&amp;A ได้">เริ่ม Q&amp;A ได้</button>
+        <button class="btn" data-msg="หมดเวลาแล้ว">หมดเวลาแล้ว</button>
+      </div>
+      <form class="msg-form" id="msgForm">
+        <input type="text" id="msgText" maxlength="140" placeholder="พิมพ์ข้อความเอง">
+        <button class="btn pri" type="submit">ส่ง</button>
+      </form>
+      <div class="msg-now" id="msgNow">ไม่มีข้อความบนจอผู้บรรยาย</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <h2>โหมดกำหนดเอง</h2>
+    <form class="manual-form" id="manualForm">
+      <label class="field wide">หัวข้อ<input type="text" id="mTitle" required maxlength="200"></label>
+      <label class="field wide">วิทยากร (ไม่บังคับ)<input type="text" id="mSpk" maxlength="300"></label>
+      <label class="field">เวลาเริ่ม<input type="time" id="mStart" required></label>
+      <label class="field">ระยะเวลา (นาที)<input type="number" id="mDur" min="1" max="600" value="30" required></label>
+      <div class="row-btns wide" style="margin-top:2px">
+        <button class="btn pri" type="submit">แสดงหัวข้อนี้บนจอ</button>
+        <button class="btn" type="button" id="mUseNow">ตั้งเวลาเริ่มเป็นตอนนี้</button>
+        <button class="btn" type="button" id="mResume">กลับไปใช้หัวข้อกำหนดเองล่าสุด</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel sched">
+    <div class="sched-head">
+      <h2 style="margin:0">ตารางการบรรยาย</h2>
+      <select id="daySel"></select>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ตามตาราง</th><th>ประเภท</th><th>หัวข้อ</th><th>เริ่ม (ปรับ)</th><th>จบ (ปรับ)</th><th></th></tr></thead>
+      <tbody id="schedBody"></tbody>
+    </table></div>
+    <p style="margin-top:10px;font-size:14px;color:#5A666B">ช่องที่ปรับว่างไว้ = ใช้เวลาตามตาราง แก้ในชีตโดยตรงได้เช่นกัน ระบบจะอัปเดตภายในไม่กี่วินาที</p>
+  </div>
+</section>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbx1BJ637Ocr9EAkP87HEd9q703hhc2i9PC5BOndbIjQ7jjCpXHfke3dp6lefyJ5-uKhUQ/exec';            // ← ใส่ URL ของ Apps Script Web app (ลงท้ายด้วย /exec)
+const POLL_MS = 2500;          // ดึงข้อมูลทุก 2.5 วินาที
+const OFFLINE_AFTER = 10000;   // ไม่ได้ข้อมูลเกิน 10 วินาที = ออฟไลน์
+const WARN_S = 300, CRIT_S = 60;
+const MANUAL_REMIND_MIN = 10;
+const TALK = new Set(['บรรยาย', 'Sponsor', 'พิธีการ']);
+
+/* ===================== STATE & TIME ===================== */
+let S = null, lastOk = 0, offset = 0, samples = [], role = null;
+const $ = id => document.getElementById(id);
+const now = () => Date.now() + offset;
+const BKK = 7 * 3600e3;
+const bkkDate = ms => new Date(ms + BKK).toISOString().slice(0, 10);
+const hm = ms => new Date(ms + BKK).toISOString().slice(11, 16).replace(':', '.');
+const hmColon = ms => new Date(ms + BKK).toISOString().slice(11, 16);
+const hms = ms => new Date(ms + BKK).toISOString().slice(11, 19).replace(/:/g, '.');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const TH_MONTH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const thDate = iso => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${TH_MONTH[m - 1]} ${y + 543}`; };
+
+function fmtDur(totalSec) {
+  totalSec = Math.max(0, totalSec);
+  const h = Math.floor(totalSec / 3600), m = Math.floor(totalSec % 3600 / 60), s = totalSec % 60;
+  const p = n => String(n).padStart(2, '0');
+  return h ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+}
+const digits = str => str.replace(/\d/g, '<span class="d">$&</span>').replace(/:/g, '<span class="sep">:</span>');
+
+function applyState(st, t0, t1) {
+  S = st;
+  if (t0 != null) {
+    samples.push({ rtt: t1 - t0, off: st.serverTime - (t0 + t1) / 2 });
+    if (samples.length > 8) samples.shift();
+    offset = samples.reduce((a, b) => (b.rtt < a.rtt ? b : a)).off;
+    lastOk = Date.now();
+  }
+  try { localStorage.setItem('sipc_state', JSON.stringify({ S, offset })); } catch (e) {}
+  if (role === 'admin' && !$('admin').classList.contains('hidden')) renderAdmin(false);
+}
+
+async function poll() {
+  if (API_URL) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const t0 = Date.now();
+    try {
+      const r = await fetch(API_URL + '?action=state&_=' + t0, { signal: ctrl.signal, cache: 'no-store' });
+      const st = await r.json();
+      if (st.ok) applyState(st, t0, Date.now());
+    } catch (e) { /* offline: keep counting from last state */ }
+    clearTimeout(timer);
+  }
+  setTimeout(poll, POLL_MS);
+}
+
+async function api(body) {
+  const pw = sessionStorage.getItem('sipc_pw') || '';
+  const r = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ password: pw }, body))
+  });
+  const res = await r.json();
+  if (res.state) applyState(res.state, null, null);
+  return res;
+}
+
+/* ===================== WHAT IS ON NOW ===================== */
+function eff(it) { return Object.assign({}, it, { s: it.adjStart ?? it.start, e: it.adjEnd ?? it.end, key: 'r:' + it.row }); }
+
+function computeView(t) {
+  if (!S) return { kind: 'loading', key: 'loading' };
+  if (S.mode === 'manual' && S.manual) {
+    const m = S.manual;
+    const it = { key: 'm:' + m.id, type: 'บรรยาย', title: m.title, speaker: m.speaker, s: m.start, e: m.end, manual: true };
+    if (t < it.s) return { kind: 'before', next: it, key: it.key, manual: true };
+    return { kind: 'talk', cur: it, next: null, key: it.key, manual: true };
+  }
+  const all = (S.items || []).map(eff);
+  const today = bkkDate(t);
+  const day = all.filter(x => x.date === today).sort((a, b) => a.s - b.s);
+  if (!day.length) {
+    const up = all.filter(x => x.s > t).sort((a, b) => a.s - b.s)[0] || null;
+    return { kind: 'idle', next: up, key: 'idle' };
+  }
+  // หัวข้อที่เริ่มก่อนอยู่บนจอจนครบเวลาจบของตัวเอง
+  const cur = day.find(x => x.s <= t && x.e > t);
+  if (cur) {
+    const next = day.find(x => x !== cur && x.s >= cur.s && x.e > cur.e) || null;
+    const kind = TALK.has(cur.type) ? 'talk' : (cur.type === 'พัก' ? 'break' : 'notice');
+    return { kind, cur, next, key: cur.key, day };
+  }
+  const next = day.find(x => x.s > t);
+  if (next) {
+    const prev = [...day].reverse().find(x => x.e <= t);
+    if (prev && TALK.has(prev.type)) return { kind: 'gap', cur: prev, next, key: prev.key, day };
+    return { kind: 'before', next, key: next.key, day };
+  }
+  return { kind: 'done', key: 'done', day };
+}
+
+function talkClock(it, t) {
+  const remMs = it.e - t;
+  const rem = Math.ceil(remMs / 1000);
+  const over = remMs <= 0;
+  const cls = over ? 'over' : rem <= CRIT_S ? 'crit' : rem <= WARN_S ? 'warn' : 'ok';
+  const text = over ? '+' + fmtDur(Math.floor(-remMs / 1000)) : fmtDur(rem);
+  const pct = Math.min(100, Math.max(0, (t - it.s) / (it.e - it.s) * 100));
+  return { cls, text, pct, over };
+}
+
+/* ===================== SPEAKER ===================== */
+const SP = {};
+document.querySelectorAll('#speaker [data-r]').forEach(el => SP[el.dataset.r] = el);
+let spSeenMsg = null;
+
+function renderSpeaker() {
+  const t = now(), v = computeView(t);
+  const set = (el, html) => { if (el._h !== html) { el.innerHTML = html; el._h = html; } };
+  const show = (el, on) => el.classList.toggle('hidden', !on);
+  let cls = 'rest', title = '', range = '', label = '', time = '', text = '', pct = null, next = '';
+
+  if (v.kind === 'talk' || v.kind === 'gap') {
+    const c = talkClock(v.cur, t);
+    cls = c.cls; title = esc(v.cur.title); range = `${hm(v.cur.s)}–${hm(v.cur.e)} น.`;
+    label = c.over ? 'เกินเวลา' : 'เวลาที่เหลือ'; time = c.text; pct = c.pct;
+  } else if (v.kind === 'break' || v.kind === 'notice') {
+    title = esc(v.cur.title); range = `${hm(v.cur.s)}–${hm(v.cur.e)} น.`;
+    label = v.next ? `หัวข้อถัดไปเริ่ม ${hm(v.cur.e)} น.` : 'สิ้นสุดใน';
+    time = fmtDur(Math.ceil((v.cur.e - t) / 1000));
+  } else if (v.kind === 'before') {
+    title = esc(v.next.title); range = `${hm(v.next.s)}–${hm(v.next.e)} น.`;
+    label = `เริ่มเวลา ${hm(v.next.s)} น.`; time = fmtDur(Math.ceil((v.next.s - t) / 1000));
+  } else if (v.kind === 'done') text = 'จบการประชุมวันนี้';
+  else if (v.kind === 'idle') text = v.next ? `ไม่มีกำหนดการวันนี้<br><small style="font-size:.5em;font-weight:500">ครั้งถัดไป ${thDate(v.next.date)} เวลา ${hm(v.next.s)} น.</small>` : 'ไม่มีกำหนดการวันนี้';
+  else text = 'กำลังเชื่อมต่อ…';
+
+  if (v.next && (v.kind === 'talk' || v.kind === 'gap' || v.kind === 'break' || v.kind === 'notice'))
+    next = `<b>ถัดไป ${hm(Math.max(v.next.s, v.cur.e))} น.</b>${esc(v.next.title)}`;
+
+  const el = $('speaker');
+  if (el._cls !== cls) { el.classList.remove('ok', 'warn', 'crit', 'over', 'rest'); el.classList.add(cls); el._cls = cls; }
+  set(SP.title, title); set(SP.range, range); set(SP.label, label); set(SP.next, next);
+  show(SP.time, !!time); show(SP.label, !!time); show(SP.text, !time);
+  set(SP.time, digits(time)); SP.time.classList.toggle('long', time.length > 6);
+  set(SP.text, text);
+  show(SP.barwrap, pct != null); if (pct != null) SP.bar.style.width = pct.toFixed(2) + '%';
+
+  // ข้อความจาก admin: แสดงเฉพาะเมื่อส่งมาให้หัวข้อที่กำลังแสดงอยู่
+  const m = S && S.message;
+  const msgOn = !!(m && m.key === v.key);
+  show(SP.msg, msgOn);
+  if (msgOn) {
+    set(SP.msg, esc(m.text));
+    if (spSeenMsg !== m.id) { spSeenMsg = m.id; SP.msg.classList.remove('flash'); void SP.msg.offsetWidth; SP.msg.classList.add('flash'); }
+  }
+}
+
+/* ===================== AUDIENCE ===================== */
+const AU = {};
+document.querySelectorAll('#audience [data-r]').forEach(el => AU[el.dataset.r] = el);
+
+function speakersHtml(s) {
+  const names = String(s || '').split(/\n+/).map(x => x.trim()).filter(Boolean);
+  return { html: names.map(esc).join('<br>'), many: names.length > 2 };
+}
+
+function renderAudience() {
+  const t = now(), v = computeView(t);
+  const set = (el, html) => { if (el._h !== html) { el.innerHTML = html; el._h = html; } };
+  const show = (el, on) => el.classList.toggle('hidden', !on);
+  let range = '', tag = '', title = '', spk = { html: '', many: false }, big = '', sub = '', pct = null, next = '';
+  const isThai = s => /[\u0E00-\u0E7F]/.test(s);
+
+  if (v.kind === 'talk') {
+    range = `${hm(v.cur.s)} – ${hm(v.cur.e)} น.`;
+    tag = v.cur.type === 'Sponsor' ? 'Sponsor Symposium' : v.cur.type === 'พิธีการ' ? 'พิธีการ' : '';
+    title = v.cur.title; spk = speakersHtml(v.cur.speaker);
+    pct = Math.min(100, Math.max(0, (t - v.cur.s) / (v.cur.e - v.cur.s) * 100));
+  } else if (v.kind === 'break') {
+    title = v.cur.title; range = `${hm(v.cur.s)} – ${hm(v.cur.e)} น.`;
+    big = digits(fmtDur(Math.ceil((v.cur.e - t) / 1000)));
+    sub = v.next ? `กลับมาพบกันเวลา ${hm(v.cur.e)} น.` : '';
+  } else if (v.kind === 'notice') {
+    title = v.cur.title; range = `${hm(v.cur.s)} – ${hm(v.cur.e)} น.`;
+  } else if (v.kind === 'before' || v.kind === 'gap') {
+    const n = v.next;
+    tag = 'ถัดไป'; range = `${hm(n.s)} – ${hm(n.e)} น.`;
+    title = n.title; spk = speakersHtml(n.speaker);
+    big = digits(fmtDur(Math.ceil((n.s - t) / 1000))); sub = `เริ่มเวลา ${hm(n.s)} น.`;
+  } else if (v.kind === 'done') {
+    title = 'จบการประชุมวันนี้'; sub = 'ขอบคุณที่ร่วมประชุม';
+  } else if (v.kind === 'idle') {
+    title = 'ไม่มีกำหนดการวันนี้';
+    if (v.next) sub = `ครั้งถัดไป ${thDate(v.next.date)} เวลา ${hm(v.next.s)} น.`;
+  } else title = 'กำลังเชื่อมต่อ…';
+
+  if (v.next && (v.kind === 'talk' || v.kind === 'break' || v.kind === 'notice'))
+    next = `ถัดไป<b>${hm(Math.max(v.next.s, v.cur.e))} น.</b>${esc(v.next.title)}`;
+
+  set(AU.range, range); set(AU.tag, esc(tag)); set(AU.title, esc(title));
+  AU.title.classList.toggle('th', isThai(title));
+  set(AU.spk, spk.html); AU.spk.classList.toggle('one', !spk.many); show(AU.spk, !!spk.html);
+  set(AU.big, big); show(AU.big, !!big);
+  set(AU.sub, esc(sub)); show(AU.sub, !!sub);
+  set(AU.next, next);
+  show(AU.barwrap, pct != null); if (pct != null) AU.bar.style.width = pct.toFixed(2) + '%';
+}
+
+/* ===================== ADMIN ===================== */
+let adDay = null, adSig = '', listSig = '';
+
+function toast(msg, isErr) {
+  const el = $('toast'); el.textContent = msg; el.className = 'toast' + (isErr ? ' err' : '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.add('hidden'), 3200);
+}
+
+async function act(body, okMsg) {
+  if (!API_URL) return toast('ยังไม่ได้ตั้งค่า API_URL', true);
+  document.querySelectorAll('#admin button').forEach(b => b.disabled = true);
+  try {
+    const res = await api(body);
+    if (res.auth === false) { sessionStorage.removeItem('sipc_pw'); enterRole('admin'); toast(res.error, true); return; }
+    if (!res.ok) toast(res.error || 'ทำรายการไม่สำเร็จ', true);
+    else if (okMsg) toast(okMsg);
+  } catch (e) {
+    toast('ส่งคำสั่งไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต', true);
+  } finally {
+    document.querySelectorAll('#admin button').forEach(b => b.disabled = false);
+  }
+}
+
+function renderAdmin(force) {
+  if (!S) return;
+  const t = now(), v = computeView(t);
+
+  // clock + connection
+  $('adClock').textContent = hms(t);
+  const online = API_URL && Date.now() - lastOk < OFFLINE_AFTER;
+  $('adConn').innerHTML = online ? '<span class="dot"></span>เชื่อมต่อแล้ว' : '<span class="dot off"></span>ออฟไลน์';
+  const manual = S.mode === 'manual';
+  $('adMode').textContent = manual ? 'โหมดกำหนดเอง' : 'ตามตาราง';
+  $('adMode').className = 'mode ' + (manual ? 'manual' : 'schedule');
+
+  // manual-mode reminder
+  const late = manual && S.manual ? Math.floor((t - S.manual.end) / 60000) : -1;
+  $('manualBanner').classList.toggle('hidden', !(late >= MANUAL_REMIND_MIN));
+  if (late >= MANUAL_REMIND_MIN) $('manualLate').textContent = late;
+  $('mResume').classList.toggle('hidden', manual || !S.manual);
+
+  // now panel
+  const target = v.cur || v.next || null;
+  let rem = '', remCls = '';
+  if (v.kind === 'talk' || v.kind === 'gap') { const c = talkClock(v.cur, t); rem = c.text; remCls = c.cls; }
+  else if (v.kind === 'break' || v.kind === 'notice') rem = fmtDur(Math.ceil((v.cur.e - t) / 1000));
+  else if (v.kind === 'before') rem = 'เริ่มใน ' + fmtDur(Math.ceil((v.next.s - t) / 1000));
+  $('nowRem').textContent = rem; $('nowRem').className = 'now-rem ' + remCls;
+
+  const sig = JSON.stringify([v.kind, v.key, target && [target.title, target.s, target.e], S.mode, S.message]);
+  if (sig !== adSig || force) {
+    adSig = sig;
+    const label = { talk: 'กำลังบรรยาย', gap: 'เกินเวลา (ยังไม่ถึงหัวข้อถัดไป)', break: 'ช่วงพัก', notice: 'ช่วงประเมิน', before: 'ยังไม่เริ่ม (หัวข้อถัดไป)', done: 'จบการประชุมวันนี้', idle: 'ไม่มีกำหนดการวันนี้', loading: '' }[v.kind];
+    $('nowTitle').textContent = target ? target.title : label;
+    $('nowMeta').textContent = target ? `${label} · ${hm(target.s)}–${hm(target.e)} น.${target.adjStart != null || target.adjEnd != null ? ' · ปรับเวลาแล้ว' : ''}` : '';
+    const b = $('nowBtns');
+    if (manual && S.manual) {
+      b.innerHTML = `<button class="btn" data-act="mbump" data-min="1">+1 นาที</button>
+        <button class="btn" data-act="mbump" data-min="5">+5 นาที</button>
+        <button class="btn dan" data-act="mbump" data-min="now">จบตอนนี้</button>
+        <button class="btn pri" data-act="toSchedule">กลับไปตามตาราง</button>`;
+    } else if (target && target.row) {
+      b.innerHTML = `<button class="btn" data-act="startNow" data-row="${target.row}">เริ่มตอนนี้</button>
+        <button class="btn" data-act="bump" data-row="${target.row}" data-min="1">+1 นาที</button>
+        <button class="btn" data-act="bump" data-row="${target.row}" data-min="5">+5 นาที</button>
+        <button class="btn dan" data-act="endNow" data-row="${target.row}">จบตอนนี้</button>
+        <button class="btn" data-act="reset" data-row="${target.row}">คืนค่าตามตาราง</button>`;
+    } else b.innerHTML = '';
+
+    const m = S.message;
+    $('msgNow').innerHTML = m
+      ? `บนจอตอนนี้: <b>${esc(m.text)}</b>${m.key !== v.key ? ' (ส่งให้หัวข้อก่อนหน้า จึงไม่แสดงแล้ว)' : ''} <button class="btn sm" data-act="clearMsg">ลบข้อความ</button>`
+      : 'ไม่มีข้อความบนจอผู้บรรยาย';
+  }
+  renderScheduleList(v, t);
+}
+
+function renderScheduleList(v, t) {
+  const all = (S.items || []).map(eff);
+  const dates = [...new Set(all.map(x => x.date))].sort();
+  const today = bkkDate(t);
+  if (!adDay || !dates.includes(adDay)) adDay = dates.includes(today) ? today : (dates.find(d => d >= today) || dates[dates.length - 1] || null);
+  const sel = $('daySel');
+  const optSig = dates.join(',');
+  if (sel._sig !== optSig) { sel.innerHTML = dates.map(d => `<option value="${d}">${thDate(d)}${d === today ? ' (วันนี้)' : ''}</option>`).join(''); sel._sig = optSig; }
+  sel.value = adDay || '';
+
+  const day = all.filter(x => x.date === adDay).sort((a, b) => a.s - b.s);
+  const curKey = v.cur ? v.cur.key : null;
+  const sig = JSON.stringify([adDay, day.map(x => [x.row, x.s, x.e, x.adjStart, x.adjEnd, x.title, x.type]), curKey, Math.floor(t / 30000)]);
+  const body = $('schedBody');
+  if (sig === listSig || body.contains(document.activeElement)) return;
+  listSig = sig;
+  body.innerHTML = day.map((x, i) => {
+    const nx = day[i + 1];
+    const overlap = nx && x.e > nx.s ? `<span class="overlap">ทับ “${esc(nx.title.slice(0, 40))}” ${Math.round((x.e - nx.s) / 60000)} นาที</span>` : '';
+    const cls = x.key === curKey ? 'cur' : (x.e <= t ? 'past' : '');
+    return `<tr class="${cls}">
+      <td class="t">${hm(x.start)}–${hm(x.end)}</td>
+      <td><span class="type ${esc(x.type)}">${esc(x.type)}</span></td>
+      <td>${esc(x.title)}${overlap}</td>
+      <td class="adj"><input type="time" data-row="${x.row}" data-f="s" value="${x.adjStart != null ? hmColon(x.adjStart) : ''}"></td>
+      <td class="adj"><input type="time" data-row="${x.row}" data-f="e" value="${x.adjEnd != null ? hmColon(x.adjEnd) : ''}"></td>
+      <td style="white-space:nowrap"><button class="btn sm pri" data-act="saveRow" data-row="${x.row}">บันทึก</button>
+        ${x.adjStart != null || x.adjEnd != null ? `<button class="btn sm" data-act="reset" data-row="${x.row}">คืนค่า</button>` : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6">ไม่มีรายการในวันนี้</td></tr>';
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || role !== 'admin') return;
+  const row = Number(b.dataset.row), a = b.dataset.act;
+  if (a === 'bump') act({ action: 'bump', row, minutes: Number(b.dataset.min) }, `ขยายเวลา ${b.dataset.min} นาทีแล้ว`);
+  else if (a === 'endNow') { if (confirm('จบหัวข้อนี้ทันที?')) act({ action: 'endNow', row }, 'จบหัวข้อแล้ว'); }
+  else if (a === 'startNow') act({ action: 'startNow', row }, 'ตั้งเวลาเริ่มเป็นตอนนี้แล้ว');
+  else if (a === 'reset') act({ action: 'reset', row }, 'คืนค่าตามตารางแล้ว');
+  else if (a === 'saveRow') {
+    const s = document.querySelector(`input[data-row="${row}"][data-f="s"]`).value;
+    const en = document.querySelector(`input[data-row="${row}"][data-f="e"]`).value;
+    act({ action: 'setTimes', row, start: s, end: en }, 'บันทึกเวลาแล้ว');
+  }
+  else if (a === 'mbump') act({ action: 'bumpManual', minutes: b.dataset.min === 'now' ? 'now' : Number(b.dataset.min) }, 'ปรับเวลาแล้ว');
+  else if (a === 'toSchedule') act({ action: 'setMode', mode: 'schedule' }, 'กลับไปแสดงตามตารางแล้ว');
+  else if (a === 'clearMsg') act({ action: 'clearMessage' }, 'ลบข้อความแล้ว');
+});
+
+document.querySelectorAll('[data-msg]').forEach(b => b.addEventListener('click', () => sendMsg(b.dataset.msg)));
+$('msgForm').addEventListener('submit', e => { e.preventDefault(); const t = $('msgText').value.trim(); if (t) { sendMsg(t); $('msgText').value = ''; } });
+function sendMsg(text) { act({ action: 'sendMessage', text, key: computeView(now()).key }, 'ส่งข้อความแล้ว'); }
+
+$('daySel').addEventListener('change', e => { adDay = e.target.value; listSig = ''; renderAdmin(true); });
+$('mUseNow').addEventListener('click', () => { $('mStart').value = hmColon(now()); });
+$('mResume').addEventListener('click', () => act({ action: 'setMode', mode: 'manual' }, 'กลับไปใช้หัวข้อกำหนดเองแล้ว'));
+$('manualForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const start = Date.parse(`${bkkDate(now())}T${$('mStart').value}:00+07:00`);
+  const end = start + Number($('mDur').value) * 60000;
+  act({ action: 'setManual', title: $('mTitle').value.trim(), speaker: $('mSpk').value.trim(), start, end }, 'แสดงหัวข้อที่กำหนดเองแล้ว');
+});
+
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('loginErr').textContent = '';
+  if (!API_URL) { $('loginErr').textContent = 'ยังไม่ได้ตั้งค่า API_URL'; return; }
+  sessionStorage.setItem('sipc_pw', $('pw').value);
+  try {
+    const res = await api({ action: 'login' });
+    if (res.ok) { $('pw').value = ''; showAdmin(); }
+    else { sessionStorage.removeItem('sipc_pw'); $('loginErr').textContent = res.error; }
+  } catch (err) { sessionStorage.removeItem('sipc_pw'); $('loginErr').textContent = 'เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ต'; }
+});
+$('loginBack').addEventListener('click', () => setRole(null));
+$('adLogout').addEventListener('click', () => { sessionStorage.removeItem('sipc_pw'); setRole(null); });
+
+/* ===================== ROLES & SCREEN ===================== */
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', keepAwake);
+
+function hideAll() { ['picker', 'speaker', 'audience', 'admin', 'adminLogin', 'corner', 'offline', 'fsHint'].forEach(id => $(id).classList.add('hidden')); }
+
+function setRole(r) {
+  if (r) localStorage.setItem('sipc_role', r); else localStorage.removeItem('sipc_role');
+  enterRole(r);
+}
+
+function enterRole(r) {
+  role = r; hideAll();
+  if (!r) { $('picker').classList.remove('hidden'); $('setupWarn').classList.toggle('hidden', !!API_URL); return; }
+  if (r === 'admin') {
+    if (sessionStorage.getItem('sipc_pw')) showAdmin(); else { $('adminLogin').classList.remove('hidden'); $('pw').focus(); }
+    return;
+  }
+  $(r).classList.remove('hidden'); $('corner').classList.remove('hidden');
+  if (!document.fullscreenElement) $('fsHint').classList.remove('hidden');
+  keepAwake();
+}
+
+function showAdmin() { hideAll(); role = 'admin'; $('admin').classList.remove('hidden'); adSig = ''; listSig = ''; renderAdmin(true); }
+
+document.querySelectorAll('.roles button').forEach(b => b.addEventListener('click', () => setRole(b.dataset.role)));
+$('switchBtn').addEventListener('click', e => { e.stopPropagation(); if (confirm('เปลี่ยนบทบาทของเครื่องนี้?')) { if (document.fullscreenElement) document.exitFullscreen(); setRole(null); } });
+$('fsBtn').addEventListener('click', e => { e.stopPropagation(); goFull(); });
+function goFull() { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); $('fsHint').classList.add('hidden'); }
+['speaker', 'audience'].forEach(id => $(id).addEventListener('click', goFull));
+
+// show cursor + corner buttons only while the mouse moves
+let cursorT;
+document.addEventListener('mousemove', () => {
+  document.querySelectorAll('.stage').forEach(s => s.classList.add('show-cursor'));
+  $('corner').classList.add('show-cursor');
+  clearTimeout(cursorT);
+  cursorT = setTimeout(() => { document.querySelectorAll('.stage').forEach(s => s.classList.remove('show-cursor')); $('corner').classList.remove('show-cursor'); }, 2500);
+});
+
+/* ===================== LOOP ===================== */
+function tick() {
+  const offline = !!API_URL && Date.now() - lastOk > OFFLINE_AFTER;
+  if (role === 'speaker') { renderSpeaker(); $('offline').classList.toggle('hidden', !offline); }
+  else if (role === 'audience') renderAudience();   // จอผู้ชมไม่แสดงสถานะออฟไลน์
+  else if (role === 'admin' && !$('admin').classList.contains('hidden')) renderAdmin(false);
+}
+
+// โหลดข้อมูลล่าสุดที่เคยได้รับ เพื่อให้เปิดใหม่ตอนเน็ตหลุดก็ยังนับต่อได้
+try { const c = JSON.parse(localStorage.getItem('sipc_state') || 'null'); if (c && c.S) { S = c.S; offset = c.offset || 0; } } catch (e) {}
+
+const hashRole = location.hash.replace('#', '');
+enterRole(['admin', 'speaker', 'audience'].includes(hashRole) ? (localStorage.setItem('sipc_role', hashRole), hashRole) : localStorage.getItem('sipc_role'));
+poll();
+setInterval(tick, 250);
+</script>
+</body>
+</html>
